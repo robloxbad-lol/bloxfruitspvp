@@ -613,3 +613,151 @@ task.spawn(function()
         task.wait(FA_ClickDelay)
     end
 end)
+-- ==================================================
+-- 【完全統合・修正版】全機能一括追加セクション
+-- ==================================================
+
+local CollectionService = game:GetService("CollectionService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+-- リモートの取得（Buso用の正しい名称 CommF_ を使用）
+local CommF_Remote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("CommF_")
+
+-- 1. Auto Buso Haki (提示されたロジックに完全修正)
+_G.AutoBuso = false
+local busoBtn = createButton("Auto Buso Haki: OFF", Color3.fromRGB(50, 50, 50), Color3.fromRGB(255, 255, 255), function()
+    _G.AutoBuso = not _G.AutoBuso
+end)
+
+task.spawn(function()
+    while task.wait(0.5) do
+        -- ボタンの見た目更新（連打にならないよう0.5秒間隔）
+        busoBtn.Text = "Auto Buso Haki: " .. (_G.AutoBuso and "ON" or "OFF")
+        busoBtn.BackgroundColor3 = _G.AutoBuso and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(50, 50, 50)
+        busoBtn.TextColor3 = _G.AutoBuso and Color3.fromRGB(0, 0, 0) or Color3.fromRGB(255, 255, 255)
+
+        -- メインロジック（提示された通りの判定条件）
+        if _G.AutoBuso then
+            local char = LocalPlayer.Character
+            if char
+            and CollectionService:HasTag(char, "Buso")
+            and not char:FindFirstChild("HasBuso") then
+                pcall(function()
+                    CommF_Remote:InvokeServer("Buso")
+                end)
+            end
+        end
+    end
+end)
+
+-- 2. Infinite Energy
+_G.InfiniteEnergy = false
+local energyBtn = createButton("Infinite Energy: OFF", Color3.fromRGB(0, 150, 200), Color3.fromRGB(255, 255, 255), function()
+    _G.InfiniteEnergy = not _G.InfiniteEnergy
+end)
+
+RunService.Heartbeat:Connect(function()
+    energyBtn.Text = "Infinite Energy: " .. (_G.InfiniteEnergy and "ON" or "OFF")
+    energyBtn.BackgroundColor3 = _G.InfiniteEnergy and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(0, 150, 200)
+    
+    if _G.InfiniteEnergy then
+        pcall(function()
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("Energy") then
+                char.Energy.Value = char.Energy.MaxValue
+            end
+        end)
+    end
+end)
+
+-- 3. Water Walk
+_G.WaterWalk = false
+local waterPart = Instance.new("Part")
+waterPart.Size = Vector3.new(100, 1, 100)
+waterPart.Anchored = true
+waterPart.Transparency = 1
+waterPart.CanCollide = false
+waterPart.Parent = workspace
+
+local waterBtn = createButton("Water Walk: OFF", Color3.fromRGB(0, 100, 255), Color3.fromRGB(255, 255, 255), function()
+    _G.WaterWalk = not _G.WaterWalk
+end)
+
+task.spawn(function()
+    while task.wait() do
+        waterBtn.Text = "Water Walk: " .. (_G.WaterWalk and "ON" or "OFF")
+        waterBtn.BackgroundColor3 = _G.WaterWalk and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(0, 100, 255)
+        
+        if _G.WaterWalk then
+            local char = LocalPlayer.Character
+            local root = char and char:FindFirstChild("HumanoidRootPart")
+            if root and root.Position.Y < 5 and root.Position.Y > -10 then
+                waterPart.CFrame = CFrame.new(root.Position.X, 0.5, root.Position.Z)
+                waterPart.CanCollide = true
+            else
+                waterPart.CanCollide = false
+            end
+        else
+            waterPart.CanCollide = false
+        end
+    end
+end)
+
+-- 4. Auto Race V4
+_G.AutoRaceV4 = false
+local raceV4Btn = createButton("Auto Race V4: OFF", Color3.fromRGB(150, 0, 255), Color3.fromRGB(255, 255, 255), function()
+    _G.AutoRaceV4 = not _G.AutoRaceV4
+end)
+
+task.spawn(function()
+    while task.wait(0.2) do
+        raceV4Btn.Text = "Auto Race V4: " .. (_G.AutoRaceV4 and "ON" or "OFF")
+        raceV4Btn.BackgroundColor3 = _G.AutoRaceV4 and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(150, 0, 255)
+        
+        if _G.AutoRaceV4 then
+            local char = LocalPlayer.Character
+            if char then
+                local RaceEnergy = char:FindFirstChild("RaceEnergy")
+                local RaceTransformed = char:FindFirstChild("RaceTransformed")
+                if RaceEnergy and RaceTransformed then
+                    if RaceEnergy.Value >= 1 and not RaceTransformed.Value then
+                        ReplicatedStorage.Events.ActivateRaceV4:Fire()
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- 5. Auto Race Ability
+_G.AutoRaceAbility = false
+local raceAbilityBtn = createButton("Auto Race Ability: OFF", Color3.fromRGB(255, 100, 0), Color3.fromRGB(255, 255, 255), function()
+    _G.AutoRaceAbility = not _G.AutoRaceAbility
+end)
+
+local raceAbilities = { "Last Resort","Agility","Water Body","Heavenly Blood", "Heightened Senses","Energy Core","Primordial Reign" }
+local raceCooldown = 0
+
+RunService.Heartbeat:Connect(function(dt)
+    raceAbilityBtn.Text = "Auto Race Ability: " .. (_G.AutoRaceAbility and "ON" or "OFF")
+    raceAbilityBtn.BackgroundColor3 = _G.AutoRaceAbility and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(255, 100, 0)
+    
+    if not _G.AutoRaceAbility then return end
+    local char = LocalPlayer.Character
+    if not (char and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0) then return end
+    
+    local hasAbility = false
+    for _, v in ipairs(raceAbilities) do
+        if LocalPlayer.Backpack:FindFirstChild(v) or char:FindFirstChild(v) then
+            hasAbility = true; break
+        end
+    end
+    if not hasAbility then return end
+
+    raceCooldown = raceCooldown - dt
+    if raceCooldown <= 0 then
+        ReplicatedStorage.Remotes.CommE:FireServer("ActivateAbility")
+        raceCooldown = 0.2
+    end
+end)
